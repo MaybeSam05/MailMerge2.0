@@ -56,7 +56,7 @@ def send_pending_followups():
     conn.close()
 
 # Start the scheduler when the app starts
-@app.before_first_request
+@app.before_request
 def init_scheduler():
     if not scheduler.running:
         scheduler.add_job(

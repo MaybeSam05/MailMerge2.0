@@ -2,7 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 import smtplib
 from datetime import datetime, timedelta
 import re
-import sqlite3
+import os
+import psycopg2
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
@@ -10,63 +11,70 @@ app = Flask(__name__)
 
 # Initialize the scheduler
 scheduler = BackgroundScheduler({
-    'apscheduler.jobstores.default': SQLAlchemyJobStore(url='sqlite:///jobs.db'),
+    'apscheduler.jobstores.default': SQLAlchemyJobStore(url=os.environ.get('DATABASE_URL')),
     'apscheduler.executors.default': {'class': 'apscheduler.executors.pool:ThreadPoolExecutor', 'max_workers': '20'},
-    'apscheduler.job_defaults.coalesce': 'false',
-    'apscheduler.job_defaults.max_instances': '3',
+    'apscheduler.job_defaults.coalesce': 'true',
+    'apscheduler.job_defaults.max_instances': '1',
 })
 
 def send_pending_followups():
     """Check and send any pending follow-up emails"""
-    conn = sqlite3.connect('followups.db')
-    c = conn.cursor()
-    
-    today = datetime.now().date()
-    
-    c.execute('''SELECT * FROM followups 
-                 WHERE send_date <= ? 
-                 AND sent IS NULL''', (today,))
-    pending_emails = c.fetchall()
-    
-    for email in pending_emails:
-        try:
-            _, sender, receiver, subject, body, send_date, gmail_key = email
-            
-            server = smtplib.SMTP("smtp.gmail.com", 587)
-            server.starttls()
-            server.login(sender, gmail_key)
-            
-            text = f"Subject: {subject}\n\n{body}"
-            server.sendmail(sender, receiver, text)
-            
-            c.execute('''UPDATE followups 
-                        SET sent = 1 
-                        WHERE sender = ? 
-                        AND receiver = ? 
-                        AND send_date = ?''', 
-                     (sender, receiver, send_date))
-            
-            print(f"Follow-up email sent to {receiver}")
-            server.quit()
-            
-        except Exception as e:
-            print(f"Error sending email to {receiver}: {str(e)}")
-    
-    conn.commit()
-    conn.close()
+    try:
+        DATABASE_URL = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(DATABASE_URL)
+        c = conn.cursor()
+        
+        current_time = datetime.now()
+        
+        c.execute('''SELECT * FROM followups 
+                     WHERE send_date <= %s 
+                     AND sent IS NULL''', (current_time,))
+        pending_emails = c.fetchall()
+        
+        for email in pending_emails:
+            try:
+                _, sender, receiver, subject, body, send_date, gmail_key = email
+                
+                server = smtplib.SMTP("smtp.gmail.com", 587)
+                server.starttls()
+                server.login(sender, gmail_key)
+                
+                text = f"Subject: {subject}\n\n{body}"
+                server.sendmail(sender, receiver, text)
+                
+                c.execute('''UPDATE followups 
+                            SET sent = true 
+                            WHERE sender = %s 
+                            AND receiver = %s 
+                            AND send_date = %s''', 
+                         (sender, receiver, send_date))
+                
+                print(f"Follow-up email sent to {receiver}")
+                server.quit()
+                
+            except Exception as e:
+                print(f"Error sending email to {receiver}: {str(e)}")
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Database connection error: {str(e)}")
 
 # Start the scheduler when the app starts
-@app.before_request
+@app.before_first_request
 def init_scheduler():
     if not scheduler.running:
-        scheduler.add_job(
-            send_pending_followups,
-            'interval',
-            minutes=1,
-            id='send_followups',
-            replace_existing=True
-        )
-        scheduler.start()
+        try:
+            scheduler.add_job(
+                send_pending_followups,
+                'interval',
+                minutes=1,
+                id='send_followups',
+                replace_existing=True
+            )
+            scheduler.start()
+        except Exception as e:
+            print(f"Scheduler error: {str(e)}")
 
 def sanitize_input(input_str):
     """Remove special characters from input to prevent issues."""
@@ -83,6 +91,10 @@ def home():
 @app.route('/parameters', methods=['GET', 'POST'])
 def parameters():
     return render_template('parameters.html')
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "healthy"})
 
 @app.route('/submit', methods=['POST'])
 def submit():
@@ -128,29 +140,30 @@ def submit():
     refined_data = process_data(data)
     initsend(refined_data, user_email, gmail_key)
     
-    # Store follow-up email data in database for later sending
-    conn = sqlite3.connect('followups.db')
+    # Store follow-up email data in database
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
     
     # Create table if it doesn't exist
     c.execute('''CREATE TABLE IF NOT EXISTS followups
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 (id SERIAL PRIMARY KEY,
                   sender TEXT,
                   receiver TEXT, 
                   subject TEXT,
                   body TEXT,
-                  send_date DATE,
+                  send_date TIMESTAMP,
                   gmail_key TEXT,
                   sent BOOLEAN DEFAULT NULL)''')
     
     # Calculate send date for follow-ups
-    send_date = (datetime.now() + timedelta(minutes=data['followup_days'])).date()  # Changed from days to minutes
+    send_date = datetime.now() + timedelta(minutes=data['followup_days'])
     
     # Store each follow-up email
     for entry in refined_data:
         c.execute('''INSERT INTO followups 
                      (sender, receiver, subject, body, send_date, gmail_key)
-                     VALUES (?, ?, ?, ?, ?, ?)''',
+                     VALUES (%s, %s, %s, %s, %s, %s)''',
                  (user_email, 
                   entry['email'],
                   entry['followup_subject'],

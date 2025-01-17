@@ -1,0 +1,160 @@
+:root {
+    --primary-color: #2D3436;
+    --secondary-color: #636E72;
+    --accent-color: #00B894;
+    --background-color: #F8FAFC;
+    --container-bg: rgba(255, 255, 255, 0.95);
+    --border-radius: 16px;
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+  }
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    color: var(--primary-color);
+    background: linear-gradient(135deg, #DFE6E9 0%, #B2BEC3 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--spacing-md);
+  }
+  
+  .container {
+    max-width: 800px;
+    width: 100%;
+    background: var(--container-bg);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-xl);
+    box-shadow: 
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(20px);
+    animation: slideUp 0.8s ease-out forwards;
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+    letter-spacing: -0.02em;
+  }
+  
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: var(--spacing-lg) 0 var(--spacing-md);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 2px solid #E2E8F0;
+  }
+  
+  h4 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+    margin: var(--spacing-md) 0 var(--spacing-xs);
+  }
+  
+  h5 {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: var(--secondary-color);
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-md);
+    position: relative;
+  }
+  
+  h5::before {
+    content: "•";
+    position: absolute;
+    left: 0.5rem;
+    color: var(--accent-color);
+  }
+  
+  button {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    margin: var(--spacing-xl) auto 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: white;
+    background: var(--accent-color);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 184, 148, 0.2);
+  }
+  
+  button:active {
+    transform: translateY(0);
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .container {
+      padding: var(--spacing-lg);
+      margin: var(--spacing-sm);
+    }
+  
+    h1 {
+      font-size: 2rem;
+    }
+  
+    h2 {
+      font-size: 1.5rem;
+    }
+  
+    h4 {
+      font-size: 1rem;
+    }
+  
+    h5 {
+      font-size: 0.9rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    :root {
+      --spacing-xl: 2rem;
+      --spacing-lg: 1.5rem;
+      --spacing-md: 1rem;
+    }
+  
+    .container {
+      padding: var(--spacing-md);
+    }
+  
+    h1 {
+      font-size: 1.75rem;
+    }
+  }
